@@ -129,15 +129,15 @@ def print_status(message: str, status: str, success: bool = True, start_color: s
     full_message = f"\n\n\n[{status}] {message}"
     gradient_print(full_message, start_color, end_color)
 
-def print_progress_bar(iteration: int, total: int, prefix: str = '', suffix: str = '', decimals: int = 2, fill: str = '█', print_end: str = "\r"):
-    percent = f"{100 * (iteration / float(total)):.{decimals}f}%"
-    length = get_terminal_size()[0] - len(f"{prefix} {percent} | | {iteration}/{total}")
+def print_progress_bar(iteration: int, total: int, prefix: str = '', suffix: str = ''):
+    percent = f"{100 * (iteration / float(total)):.{max(0, min(6, len(str(total)) - 3))}f}%"
+    length = get_terminal_size()[0] - len(f"{prefix} {percent} || {iteration}/{total}")
     filled_length = int(length * iteration // total)
-    bar = fill * filled_length + '-' * (length - filled_length)
+    bar = '█' * filled_length + '-' * (length - filled_length)
     terminal_width = get_terminal_size()[0]
 
-    print(f'\r{gradient_string(truncate_line(f'{prefix} {percent} |{bar}| {iteration}/{total}', terminal_width) + "\033[1B", 'cyan', 'magenta')}', end=print_end)
-    print(f'\r{gradient_string(truncate_line(suffix, terminal_width) + "\033[1A", 'cyan', 'magenta')}', end=print_end)
+    print(f'\r{gradient_string(truncate_line(f'{prefix} {percent} |{bar}| {iteration}/{total}', terminal_width) + "\033[1B", 'cyan', 'magenta')}', end="\r")
+    print(f'\r{gradient_string(truncate_line(suffix, terminal_width) + "\033[1A", 'cyan', 'magenta')}', end="\r")
     
     if iteration == total:
         print()

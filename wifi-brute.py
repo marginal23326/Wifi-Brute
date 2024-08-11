@@ -168,6 +168,8 @@ class WifiCracker:
                 time.sleep(0.2)
             elif keyboard.is_pressed('q'):
                 self.stop_cracking = True
+                if not self.paused:
+                    print("\n")
                 break
             time.sleep(0.1)
 
