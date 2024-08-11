@@ -1,8 +1,10 @@
-import os, re, sys, time, shutil, ctypes, argparse, platform, threading, subprocess, collections
+import os, re, sys, time, ctypes, argparse, platform, threading, collections
 from datetime import timedelta
-from utils import Colors, banner, clear, sprint, print_header, get_input, print_table, print_status, print_progress_bar, print_menu, confirm_action, gradient_print, get_terminal_size
+from utils import Colors, banner, clear, sprint, print_header, get_input, print_table, print_status, print_progress_bar, confirm_action, gradient_print, get_terminal_size
 
-for package in ['keyboard', 'pywifi', 'tqdm', 'colorama']:
+REQUIRED_PACKAGES = {'keyboard', 'pywifi', 'tqdm', 'colorama'}
+
+for package in REQUIRED_PACKAGES:
     try:
         __import__(package)
     except ModuleNotFoundError:
@@ -16,7 +18,7 @@ from tqdm import tqdm
 DEFAULT_WORDLIST = "passwords.txt"
 CRACKED_PASSWORDS_FILE = "cracked_passwords.txt"
 ATTEMPTED_PASSWORDS_FILE = "attempted_passwords.txt"
-DEFAULT_TIMEOUT = 5
+DEFAULT_TIMEOUT = 15
 
 class WifiCracker:
     def __init__(self, interface, timeout, wordlist):
@@ -35,16 +37,16 @@ class WifiCracker:
     @staticmethod
     def load_passwords(wordlist):
         with open(wordlist, encoding="UTF-8", errors="ignore") as f:
-            return [x.strip() for x in f]
+            return [x.strip() for x in f if x.strip()]
 
     @staticmethod
     def load_history(filename):
-        history = collections.defaultdict(list)
+        history = collections.defaultdict(set)
         if os.path.exists(filename):
             with open(filename) as f:
                 for line in f:
                     ssid, password = line.strip().split("--")
-                    history[ssid].append(password)
+                    history[ssid].add(password)
         return history
 
     @staticmethod
@@ -57,8 +59,8 @@ class WifiCracker:
             print_status("Scanning for WiFi networks", "IN PROGRESS")
             with tqdm(total=100, bar_format="{l_bar}{bar}", colour='cyan', desc="Scanning") as pbar:
                 self.interface.scan()
-                for i in range(100):
-                    time.sleep(0.03)
+                for _ in range(100):
+                    time.sleep(0.04)
                     pbar.update(1)
                 return self.interface.scan_results()
         try:
@@ -97,17 +99,17 @@ class WifiCracker:
 
     def crack_wifi(self, ssid, is_hidden=False):
         if ssid in self.cracked_passwords:
-            print_status(f"Password already found for {ssid}", "SUCCESS")
-            return self.cracked_passwords[ssid][0]
+            print_status(f"Password already found for {ssid}: {next(iter(self.cracked_passwords[ssid]))}", "SUCCESS")
+            return next(iter(self.cracked_passwords[ssid]))
 
         self.current_ssid = ssid
         self.total_passwords = len(self.passwords)
-        self.idx = 0
 
         print_header(f"Cracking {ssid}")
         terminal_width = get_terminal_size()[0]
+        
+        self.idx = 0
         while self.idx < self.total_passwords:
-
             if terminal_width != get_terminal_size()[0]:
                 clear()
                 terminal_width = get_terminal_size()[0]
@@ -132,12 +134,14 @@ class WifiCracker:
             
             if result is None:
                 continue
+            
+            if self.stop_cracking:
+                return None
+            
             self.save_to_history(ATTEMPTED_PASSWORDS_FILE, ssid, self.current_password)
             if result:
-                if ssid not in self.attempted_passwords:
-                    self.attempted_passwords[ssid] = []
-                self.attempted_passwords[ssid].append(self.current_password)
-                print_status(f"\n\nPassword found for {ssid}: {self.current_password}", "SUCCESS", start_color='#A020F0')
+                self.attempted_passwords[ssid].add(self.current_password)
+                print_status(f"Password found for {ssid}: {self.current_password}", "SUCCESS", start_color='#A020F0')
                 return self.current_password
 
             self.idx += 1
@@ -157,12 +161,9 @@ class WifiCracker:
         while not self.stop_cracking:
             if keyboard.is_pressed('p'):
                 self.paused = not self.paused
-                if self.paused:
-                    clear()
-                    print(f'\n{Colors.YELLOW}Paused [{Colors.GREEN}p{Colors.YELLOW}]')
-                else:
-                    clear()
-                    print(f"\n{Colors.GREEN}Resumed\n")
+                clear()
+                print(f'\n{Colors.YELLOW}{"Paused" if self.paused else "Resumed"} [{Colors.GREEN}p{Colors.YELLOW}]\n')
+                if not self.paused:
                     self.print_status_line()
                 time.sleep(0.2)
             elif keyboard.is_pressed('q'):
@@ -209,18 +210,17 @@ def select_networks(networks):
         
         try:
             indices = [int(x) - 1 for x in selections if x]
-            selected_networks = []
+            selected_networks = [networks[i] for i in indices if 0 <= i < len(networks)]
+            
+            if not selected_networks:
+                print_status("No valid networks selected. Please try again.", "ERROR", success=False)
+                continue
             
             for i in indices:
-                if 0 <= i < len(networks):
-                    selected_networks.append(networks[i])
-                else:
+                if i < 0 or i >= len(networks):
                     print_status(f"Network ID {i+1} is out of range and will be skipped.", "WARNING", success=False)
             
-            if selected_networks:
-                return selected_networks
-            else:
-                print_status("No valid networks selected. Please try again.", "ERROR", success=False)
+            return selected_networks
         except ValueError:
             print_status("Invalid input. Please enter valid ID number(s) or 'all'", "ERROR", success=False)
 
@@ -233,7 +233,7 @@ def main():
     check_privileges()
     clear()
     banner(show_logo=True)
-    sprint(f"Note: This tool is for educational purposes only.", delay=0.0008)
+    sprint("Note: This tool is for educational purposes only.", delay=0.0008)
     time.sleep(1)
     clear()
     banner(show_logo=True)
@@ -243,7 +243,7 @@ def main():
 
     while True:
         networks = cracker.scan_wifi()
-        networks = sorted(list({network.ssid: network for network in networks}.values()), key=lambda x: x.signal, reverse=True)
+        networks = sorted({network.ssid: network for network in networks}.values(), key=lambda x: x.signal, reverse=True)
         print_status(f"Number of unique WiFi networks found: {len(networks)}", "INFO")
         
         selected_networks = select_networks(networks)
@@ -253,8 +253,8 @@ def main():
 
         clear()
         print_header("Cracking Shortcuts")
-        sprint(f"Press 'p' to pause/unpause.", delay=0.0005)
-        sprint(f"Press 'q' to stop cracking.", delay=0.0005)
+        sprint("Press 'p' to pause/unpause.", delay=0.0005)
+        sprint("Press 'q' to stop cracking.", delay=0.0005)
         
         keyboard_thread = threading.Thread(target=cracker.handle_keyboard_input)
         keyboard_thread.start()
@@ -269,7 +269,7 @@ def main():
             password = cracker.crack_wifi(ssid, not network.ssid)
             if password:
                 if ssid not in cracker.cracked_passwords:
-                    cracker.cracked_passwords[ssid] = [password]
+                    cracker.cracked_passwords[ssid] = {password}
                     cracker.save_to_history(CRACKED_PASSWORDS_FILE, ssid, password)
             
             if i < len(selected_networks) and not cracker.stop_cracking:

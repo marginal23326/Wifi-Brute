@@ -122,11 +122,11 @@ def print_table(headers: list[str], rows: list[list[str]]):
     
     for row in rows:
         formatted_row = ' | '.join(f'{str(c):<{w}}' for c, w in zip(row, col_widths))
-        sprint(formatted_row, start_color='green', end_color='cyan', delay=0.00001)
+        sprint(formatted_row, start_color='green', end_color='cyan', delay=0.000001)
 
 def print_status(message: str, status: str, success: bool = True, start_color: str = "cyan", end_color: str = "yellow"):
     start_color = "green" if success else "red"
-    full_message = f"\n[{status}] {message}"
+    full_message = f"\n\n\n[{status}] {message}"
     gradient_print(full_message, start_color, end_color)
 
 def print_progress_bar(iteration: int, total: int, prefix: str = '', suffix: str = '', decimals: int = 2, fill: str = '█', print_end: str = "\r"):
@@ -152,7 +152,7 @@ def confirm_action(message: str) -> bool:
     while True:
         while msvcrt.kbhit():
             msvcrt.getch()
-        response = get_input(f"\n\n\n{message} (y/n): ").strip().lower()
+        response = get_input(f"\n{message} (y/n): ").strip().lower()
         if response in ['y', 'yes']:
             return True
         elif response in ['n', 'no']:
