@@ -16,7 +16,7 @@ from tqdm import tqdm
 DEFAULT_WORDLIST = "passwords.txt"
 CRACKED_PASSWORDS_FILE = "cracked_passwords.txt"
 ATTEMPTED_PASSWORDS_FILE = "attempted_passwords.txt"
-DEFAULT_TIMEOUT = 15
+DEFAULT_TIMEOUT = 5
 
 class WifiCracker:
     def __init__(self, interface, timeout, wordlist):
