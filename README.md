@@ -1,47 +1,91 @@
-# Wifi-Brute
-A tool to crack a wifi password with a help of wordlist. This may take long to crack a wifi depending upon number of passwords your wordlist contains.
+# WiFi-Brute
 
-# Tutorial / Youtube
+WiFi-Brute is a WiFi password cracking tool designed for educational purposes. It uses a wordlist-based approach to attempt cracking WiFi passwords, providing real-time progress updates and ETA.
 
+## Features
 
-  
-* Watch the tutotrial on youtube.
+- 🔍 Scans for available WiFi networks
+- 📊 Displays network information in a formatted table 
+- 🔐 Attempts to crack WiFi passwords using a provided wordlist
+- ⏱️ Real-time progress tracking with ETA
+- ⏯️ Pause/Resume functionality
+- 🛑 Ability to stop cracking at any time
+- 🎨 Colorful and informative console output
+- 💾 Saves cracked and attempted passwords for future reference
 
+## Prerequisites
 
-* https://rumble.com/embed/v26ifyc/?pub=1teq9a
-* Check out the latest Blog on Wifi Hacking with WifiBrute
-* [Hack Wifi In  A Click](https://www.cyberdioxide.com/2023/11/wifi-hacking-hacking-your-neeighbours.html)
-# Service
-* Get a paid worlds best top rated hacking course dm me on instagram @coding_memz
-* Get easy and working wifi hacking course dm me on instagram @coding_memz
-* Get 14M password lost containing worlds top used passwords dm me on instagram @coding_memz
+- Windows operating system
+- Python 3.10+
 
-# Update
-This tool is no longer updated, i have created ore advanced and fast version of it for windows. If you are intrested to buy dm me on telegram @coding_memz
-![Screenshot 2023-07-13 151642](https://github.com/Cyber-Dioxide/Wifi-Brute/assets/93708296/10954859-f9d4-4312-8e2e-a64a89149532)
+## Installation
 
+1. Clone the repository:
+   ```
+   git clone https://github.com/marginal23326/Wifi-Brute
+   ```
 
+2. Navigate to the Wifi-Brute directory:
+   ```
+   cd Wifi-Brute
+   ```
 
-# Telegram
-* Join Telegram Channel https://t.me/cyber_dioxid
-* Contact me on [Telegram](https://www.cyberdioxide.com/p/contact.html)
+## Usage
 
-  
-# Usage
+Run the script with the following command:
 
-1. git clone https://github.com/Cyber-Dioxide/Wifi-Brute
-2. cd Wifi-Brute
-3. chmod +x *
-4. python3 wifi-brute.py --help
-5. python3 wifi-brute.py <worlist>
-6. python3 wifi-brute.py (will use defualt wordlist passwords.txt)
+```
+python wifi-brute.py [-h] [-w WORDLIST] [-t TIMEOUT]
+```
 
-! Enjoy !
+### Command-line Arguments
 
-# Screenshot
-![Screenshot (192)](https://user-images.githubusercontent.com/93708296/148902317-f1dc07af-0af3-4648-97b1-9c9dd79163f1.png)
-![Screenshot (282)](https://user-images.githubusercontent.com/93708296/183288408-f1b6dd99-b83b-44b0-8bb1-c807040bf08a.png)
+| Argument | Description | Default |
+|----------|-------------|---------|
+| `-h`, `--help` | Show help message | - |
+| `-w WORDLIST`, `--wordlist WORDLIST` | Path to the wordlist file | `passwords.txt` |
+| `-t TIMEOUT`, `--timeout TIMEOUT` | Timeout for each connection attempt | 5 seconds |
 
+### Example Usage
 
-# Help
-For any support/help iam mostly active on Instagram @cyber_dioxide , @coding_memz
+1. Use the default wordlist:
+   ```
+   python wifi-brute.py
+   ```
+
+2. Specify a custom wordlist:
+   ```
+   python wifi-brute.py -w my_wordlist.txt
+   ```
+
+3. Set a custom timeout:
+   ```
+   python wifi-brute.py -t 3
+   ```
+
+4. Use a custom wordlist and timeout:
+   ```
+   python wifi-brute.py -w my_wordlist.txt -t 7
+   ```
+
+## Interactive Commands
+
+During the cracking process, you can use the following keyboard commands:
+
+- Press `p` to pause or unpause the cracking process
+- Press `q` to stop cracking and rescan or exit the program
+
+## Output Files
+
+The script logs attempts into two separate files to avoid repetition:
+
+1. `cracked_passwords.txt`: Contains successfully cracked WiFi passwords
+2. `attempted_passwords.txt`: Records all attempted passwords for each network
+
+## Disclaimer
+
+This tool is intended for educational purposes only. Unauthorized access to networks is illegal. Use this tool only on networks you own or have explicit permission to test. I am not responsible for any misuse or damage caused by this program.
+
+## License
+
+This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for details.
