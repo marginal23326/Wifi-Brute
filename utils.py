@@ -142,12 +142,6 @@ def print_progress_bar(iteration: int, total: int, prefix: str = '', suffix: str
     if iteration == total:
         print()
 
-def print_menu(title: str, options: list[str]):
-    print_header(title, 'cyan', 'magenta')
-    for i, option in enumerate(options, 1):
-        gradient_print(f"{i}. {option}", 'yellow', 'green')
-    print()
-
 def confirm_action(message: str) -> bool:
     while True:
         while msvcrt.kbhit():

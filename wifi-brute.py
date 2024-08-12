@@ -2,16 +2,17 @@ import os, re, sys, time, ctypes, argparse, platform, threading, collections
 from datetime import timedelta
 from utils import Colors, banner, clear, sprint, print_header, get_input, print_table, print_status, print_progress_bar, confirm_action, gradient_print, get_terminal_size
 
-REQUIRED_PACKAGES = {'keyboard', 'pywifi', 'tqdm', 'colorama'}
-
-for package in REQUIRED_PACKAGES:
+for package in {'keyboard', 'pywifi', 'tqdm', 'colorama', 'pywin32'}:
     try:
-        __import__(package)
-    except ModuleNotFoundError:
+        if package == 'pywin32':
+            import win32gui, win32process
+        else:
+            __import__(package)
+    except ImportError:
         print(f"{package} not found. Installing...")
         os.system(f"pip install {package}")
 
-import pywifi, keyboard
+import pywifi, keyboard, win32gui, win32process
 from pywifi import const
 from tqdm import tqdm
 
@@ -159,18 +160,19 @@ class WifiCracker:
 
     def handle_keyboard_input(self):
         while not self.stop_cracking:
-            if keyboard.is_pressed('p'):
-                self.paused = not self.paused
-                clear()
-                print(f'\n{Colors.YELLOW}{"Paused" if self.paused else "Resumed"} [{Colors.GREEN}p{Colors.YELLOW}]\n')
-                if not self.paused:
-                    self.print_status_line()
-                time.sleep(0.2)
-            elif keyboard.is_pressed('q'):
-                self.stop_cracking = True
-                if not self.paused:
-                    print("\n")
-                break
+            if win32process.GetWindowThreadProcessId(win32gui.GetForegroundWindow())[1] == pid:
+                if keyboard.is_pressed('p'):
+                    self.paused = not self.paused
+                    clear()
+                    print(f'\n{Colors.YELLOW}{"Paused" if self.paused else "Resumed"} [{Colors.GREEN}p{Colors.YELLOW}]\n')
+                    if not self.paused:
+                        self.print_status_line()
+                    time.sleep(0.2)
+                elif keyboard.is_pressed('q'):
+                    self.stop_cracking = True
+                    if not self.paused:
+                        print("\n")
+                    break
             time.sleep(0.1)
 
 def check_privileges():
@@ -227,6 +229,7 @@ def select_networks(networks):
             print_status("Invalid input. Please enter valid ID number(s) or 'all'", "ERROR", success=False)
 
 def main():
+    global pid
     parser = argparse.ArgumentParser(description="WiFi Brute Force Tool")
     parser.add_argument("-w", "--wordlist", default=DEFAULT_WORDLIST, help="Path to the wordlist file")
     parser.add_argument("-t", "--timeout", type=int, default=DEFAULT_TIMEOUT, help="Timeout for each connection attempt")
@@ -253,6 +256,7 @@ def main():
             clear()
             continue
 
+        _, pid = win32process.GetWindowThreadProcessId(win32gui.GetForegroundWindow())
         clear()
         print_header("Cracking Shortcuts")
         sprint("Press 'p' to pause/unpause.", delay=0.0005)
