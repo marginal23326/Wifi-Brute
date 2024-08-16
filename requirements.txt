@@ -1,0 +1,5 @@
+colorama
+keyboard
+pywifi
+pywin32
+tqdm

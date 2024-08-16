@@ -1,7 +1,12 @@
-import os, re, sys, time, shutil, platform, msvcrt
+import os
+import re
+import sys
+import time
+import shutil
+import platform
+import msvcrt
 from typing import Tuple
 from colorama import Fore, Style
-from tqdm import tqdm
 
 class Colors:
     GREEN = Style.BRIGHT + Fore.GREEN

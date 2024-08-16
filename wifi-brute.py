@@ -1,20 +1,20 @@
-import os, re, sys, time, ctypes, argparse, platform, threading, collections
+import os
+import re
+import sys
+import time
+import pywifi
+import ctypes
+import keyboard
+import win32gui
+import argparse
+import platform
+import threading
+import collections
+import win32process
+from tqdm import tqdm
+from pywifi import const
 from datetime import timedelta
 from utils import Colors, banner, clear, sprint, print_header, get_input, print_table, print_status, print_progress_bar, confirm_action, gradient_print, get_terminal_size
-
-for package in {'keyboard', 'pywifi', 'tqdm', 'colorama', 'pywin32'}:
-    try:
-        if package == 'pywin32':
-            import win32gui, win32process
-        else:
-            __import__(package)
-    except ImportError:
-        print(f"{package} not found. Installing...")
-        os.system(f"pip install {package}")
-
-import pywifi, keyboard, win32gui, win32process
-from pywifi import const
-from tqdm import tqdm
 
 DEFAULT_WORDLIST = "passwords.txt"
 CRACKED_PASSWORDS_FILE = "cracked_passwords.txt"
