@@ -68,7 +68,7 @@ class WifiCracker:
             networks = perform_scan()
         except ValueError:
             print_status("Turning on Wi-Fi", "WAIT")
-            os.system("powershell -File TurnWiFiOn.ps1")
+            os.system("powershell -File TurnOnWiFi.ps1")
             time.sleep(10)
             networks = perform_scan()
 
