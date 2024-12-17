@@ -43,7 +43,7 @@ python wifi-brute.py [-h] [-w WORDLIST] [-t TIMEOUT]
 | Argument | Description | Default |
 |----------|-------------|---------|
 | `-h`, `--help` | Show help message | - |
-| `-w WORDLIST`, `--wordlist WORDLIST` | Path to the wordlist file | `passwords.txt` |
+| `-w WORDLIST`, `--wordlist WORDLIST` | Path to the wordlist file | `probable-v2-wpa-top4800.txt` |
 | `-t TIMEOUT`, `--timeout TIMEOUT` | Timeout for each connection attempt | 5 seconds |
 
 ### Example Usage
@@ -62,11 +62,13 @@ python wifi-brute.py [-h] [-w WORDLIST] [-t TIMEOUT]
    ```
    python wifi-brute.py -t 3
    ```
+   **Note**: Set the timeout to at least 3 seconds to allow enough time for each cracking attempt.
 
 4. Use a custom wordlist and timeout:
    ```
    python wifi-brute.py -w my_wordlist.txt -t 7
    ```
+   **Note**: A longer timeout will give more time per attempt but will increase the total time to try all passwords.
 
 ## Interactive Commands
 

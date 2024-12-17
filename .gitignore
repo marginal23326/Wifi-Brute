@@ -4,3 +4,5 @@ wifite.txt
 test.txt
 Wi-Fi list.txt
 attempted_passwords.txt
+/__pycache__
+start.bat

@@ -16,10 +16,10 @@ from pywifi import const
 from datetime import timedelta
 from utils import Colors, banner, clear, sprint, print_header, get_input, print_table, print_status, print_progress_bar, confirm_action, gradient_print, get_terminal_size
 
-DEFAULT_WORDLIST = "passwords.txt"
+DEFAULT_WORDLIST = "probable-v2-wpa-top4800.txt"
 CRACKED_PASSWORDS_FILE = "cracked_passwords.txt"
 ATTEMPTED_PASSWORDS_FILE = "attempted_passwords.txt"
-DEFAULT_TIMEOUT = 15
+DEFAULT_TIMEOUT = 5
 
 class WifiCracker:
     def __init__(self, interface, timeout, wordlist):
